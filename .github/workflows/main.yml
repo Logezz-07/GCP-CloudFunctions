@@ -51,7 +51,7 @@ jobs:
         with:
           project_id: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
 
-      - name: Deploy function1 (Gen2)
+      - name: Deploy function1 (Gen2 - Public)
         env:
           REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
           PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
@@ -66,7 +66,7 @@ jobs:
             --entry-point helloHttp \
             --source ./Function-1
 
-      - name: Deploy function2 (Gen2)
+      - name: Deploy function2 (Gen2 - IAM Protected)
         env:
           REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
           PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
@@ -77,6 +77,12 @@ jobs:
             --region "$REGION" \
             --project "$PROJECT" \
             --trigger-http \
-            --allow-unauthenticated \
             --entry-point helloHttp \
             --source ./Function-2
+
+          # Grant IAM invoker to your user
+          gcloud functions add-iam-policy-binding callstartapis-v2 \
+            --region "$REGION" \
+            --member="user:logeshwaran.b@servion.com" \
+            --role="roles/cloudfunctions.invoker" \
+            --project "$PROJECT"
