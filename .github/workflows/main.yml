@@ -17,15 +17,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      # Setup + install for Function-1
+      - name: Setup Node for Function-1
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: ./Function-1/package-lock.json
 
       - name: Install deps function1
         working-directory: ./Function-1
         run: npm install
+
+      # Setup + install for Function-2
+      - name: Setup Node for Function-2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ./Function-2/package-lock.json
 
       - name: Install deps function2
         working-directory: ./Function-2
