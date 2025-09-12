@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: read
       id-token: write
@@ -27,38 +27,10 @@ jobs:
         with:
           project_id: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
 
-      - name: Deploy function1 (Gen2 - Public)
+      - name: Run deploy batch
         env:
           REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
           PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
+          FUNCTIONS: ${{ secrets.GOOGLE_FUNCTIONS_LIST }}
         run: |
-          gcloud functions deploy callstartapis-v1 \
-            --gen2 \
-            --runtime nodejs20 \
-            --region "$REGION" \
-            --project "$PROJECT" \
-            --trigger-http \
-            --allow-unauthenticated \
-            --entry-point helloHttp \
-            --source ./Function-1
-
-      - name: Deploy function2 (Gen2 - IAM Protected)
-        env:
-          REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
-          PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
-        run: |
-          gcloud functions deploy callstartapis-v2 \
-            --gen2 \
-            --runtime nodejs20 \
-            --region "$REGION" \
-            --project "$PROJECT" \
-            --trigger-http \
-            --entry-point helloHttp \
-            --source ./Function-2
-
-          # Grant IAM invoker to your user
-          gcloud functions add-iam-policy-binding callstartapis-v2 \
-            --region "$REGION" \
-            --member="user:logeshwaran.b@servion.com" \
-            --role="roles/cloudfunctions.invoker" \
-            --project "$PROJECT"
+          ./Deploy_Fucntions.bat
