@@ -31,6 +31,6 @@ jobs:
         env:
           REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
           PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
-          FUNCTIONS: ${{ secrets.GOOGLE_FUNCTIONS_LIST }}
+          FUNCTIONS: ${{ secrets.FUNCTIONS_LIST }}
         run: |
           ./Deploy_Fucntions.bat
