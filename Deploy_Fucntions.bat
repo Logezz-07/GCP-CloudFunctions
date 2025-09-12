@@ -14,7 +14,7 @@ set FUNCTIONS_LIST=%FUNCTIONS_LIST:,= %
 
 for %%F in (%FUNCTIONS_LIST%) do (
     set /a COUNT+=1
-    echo 🚀 Deploying function %%F
+    echo 🚀 Deploying function %%F from ./%%F
 
     gcloud functions deploy %%F ^
         --gen2 ^
@@ -24,7 +24,7 @@ for %%F in (%FUNCTIONS_LIST%) do (
         --trigger-http ^
         --allow-unauthenticated ^
         --entry-point helloHttp ^
-        --source ./Function-1
+        --source ./%%F
 )
 
 echo ✅ Total functions deployed: %COUNT%
