@@ -8,29 +8,56 @@ on:
 
 jobs:
   deploy:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
 
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2️⃣ Authenticate to Google Cloud
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      # 3️⃣ Setup gcloud CLI
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
 
-      - name: Run deploy batch
+      # 4️⃣ Deploy all functions from FUNCTIONS secret
+      - name: Deploy Functions from List
         env:
           REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
           PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
-          FUNCTIONS: ${{ secrets.FUNCTIONS_LIST }}
+          FUNCTIONS: ${{ secrets.FUNCTIONS_LIST }}  # comma-separated list of functions
         run: |
-          ./Deploy_Fucntions.bat
+          if [ -z "$FUNCTIONS" ]; then
+            echo "No functions specified in FUNCTIONS variable"
+            exit 0
+          fi
+
+          IFS=',' read -ra FUNC_ARRAY <<< "$FUNCTIONS"
+          COUNT=0
+
+          for func in "${FUNC_ARRAY[@]}"; do
+            COUNT=$((COUNT+1))
+            echo "Deploying function $func from ./functions/$func"
+
+            gcloud functions deploy "$func" \
+              --gen2 \
+              --runtime nodejs20 \
+              --region "$REGION" \
+              --project "$PROJECT" \
+              --trigger-http \
+              --allow-unauthenticated \
+              --entry-point helloHttp \
+              --source "./functions/$func"
+          done
+
+          echo "Total functions deployed: $COUNT"
