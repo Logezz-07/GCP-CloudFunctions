@@ -57,7 +57,7 @@ jobs:
               --trigger-http \
               --allow-unauthenticated \
               --entry-point helloHttp \
-              --source "./functions/$func"
+              --source "./$func"
           done
 
           echo "Total functions deployed: $COUNT"
