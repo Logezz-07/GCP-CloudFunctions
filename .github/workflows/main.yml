@@ -14,41 +14,51 @@ jobs:
       id-token: write
 
     steps:
-      # 1️⃣ Checkout repo
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2️⃣ Authenticate to Google Cloud
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # 3️⃣ Setup gcloud CLI
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
 
-      # 4️⃣ Deploy all functions from FUNCTIONS secret
-      - name: Deploy Functions from List
+      # detect changed functions
+      - name: Detect changed functions
+        id: changed
+        run: |
+          echo "CHANGED_FUNCTIONS="
+          git fetch origin main
+          # Compare current commit with previous commit on main
+          CHANGED=$(git diff --name-only origin/main HEAD | grep -E '^[^/]+/' | cut -d/ -f1 | sort -u | tr '\n' ' ')
+          if [ -z "$CHANGED" ]; then
+            echo "No changes detected, will deploy all functions"
+          else
+            echo "Changed functions: $CHANGED"
+          fi
+          echo "CHANGED_FUNCTIONS=$CHANGED" >> $GITHUB_ENV
+
+      # deploy functions
+      - name: Deploy Functions
         env:
           REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
           PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
-          FUNCTIONS: ${{ secrets.FUNCTIONS_LIST }}  # comma-separated list of functions
+          FUNCTIONS_LIST: ${{ secrets.FUNCTIONS_LIST }}
         run: |
-          if [ -z "$FUNCTIONS" ]; then
-            echo "No functions specified in FUNCTIONS variable"
-            exit 0
+          if [ -z "$CHANGED_FUNCTIONS" ]; then
+            echo "Deploying all functions..."
+            FUNCTIONS="$FUNCTIONS_LIST"
+          else
+            echo "Deploying only changed functions..."
+            FUNCTIONS="$CHANGED_FUNCTIONS"
           fi
 
-          IFS=',' read -ra FUNC_ARRAY <<< "$FUNCTIONS"
-          COUNT=0
-
-          for func in "${FUNC_ARRAY[@]}"; do
-            COUNT=$((COUNT+1))
-            echo "Deploying function $func from ./functions/$func"
-
+          for func in $FUNCTIONS; do
+            echo "Deploying function $func..."
             gcloud functions deploy "$func" \
               --gen2 \
               --runtime nodejs20 \
@@ -59,5 +69,3 @@ jobs:
               --entry-point helloHttp \
               --source "./$func"
           done
-
-          echo "Total functions deployed: $COUNT"
