@@ -11,52 +11,58 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout repo
+      # 1️⃣ Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
+      # 2️⃣ Authenticate to GCP
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      # 3️⃣ Setup gcloud
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
 
-      # detect changed functions
+      # 4️⃣ Determine changed functions (optional: customize your diff logic)
       - name: Detect changed functions
         id: changed
         run: |
-          echo "CHANGED_FUNCTIONS="
-          git fetch origin main
-          # Compare current commit with previous commit on main
-          CHANGED=$(git diff --name-only origin/main HEAD | grep -E '^[^/]+/' | cut -d/ -f1 | sort -u | tr '\n' ' ')
-          if [ -z "$CHANGED" ]; then
-            echo "No changes detected, will deploy all functions"
-          else
-            echo "Changed functions: $CHANGED"
-          fi
+          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^functions/' | cut -d'/' -f2 | tr '\n' ' ')
+          echo "Changed functions: $CHANGED"
           echo "CHANGED_FUNCTIONS=$CHANGED" >> $GITHUB_ENV
 
-      # deploy functions
-      - name: Deploy Functions
+      # 5️⃣ Deploy functions
+      - name: Deploy functions
         env:
           REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
           PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
-          FUNCTIONS_LIST: ${{ secrets.FUNCTIONS_LIST }}
+          FUNCTIONS_LIST: ${{ secrets.FUNCTIONS_LIST }}   # space-separated list of all functions
         run: |
           if [ -z "$CHANGED_FUNCTIONS" ]; then
-            echo "Deploying all functions..."
+            echo "No changed functions detected. Deploying all functions..."
             FUNCTIONS="$FUNCTIONS_LIST"
           else
             echo "Deploying only changed functions..."
             FUNCTIONS="$CHANGED_FUNCTIONS"
           fi
 
+          echo "Functions to deploy: $FUNCTIONS"
+
           for func in $FUNCTIONS; do
-            echo "Deploying function $func..."
-            gcloud functions deploy "$func" \
+            # Sanitize function name
+            FUNC_NAME=$(echo "$func" | tr '_' '-' | tr -cd '[:alnum:]-' | cut -c1-63)
+
+            if [ -z "$FUNC_NAME" ]; then
+              echo "Skipping invalid function name: '$func'"
+              continue
+            fi
+
+            echo "Deploying function $FUNC_NAME from ./functions/$func ..."
+            gcloud functions deploy "$FUNC_NAME" \
               --gen2 \
               --runtime nodejs20 \
               --region "$REGION" \
@@ -64,5 +70,5 @@ jobs:
               --trigger-http \
               --allow-unauthenticated \
               --entry-point helloHttp \
-              --source "./$func"
+              --source "./functions/$func"
           done
