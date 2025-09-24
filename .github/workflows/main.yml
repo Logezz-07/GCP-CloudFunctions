@@ -22,34 +22,31 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # 4️⃣ Prepare Terraform variables
-      - name: Prepare FUNCTIONS_LIST
+      # 4️⃣ Prepare FUNCTIONS_LIST for Terraform
+      - name: Prepare Functions List
         run: |
           if [ -z "${{ secrets.FUNCTIONS_LIST }}" ]; then
             echo "No functions specified!"
             exit 1
           fi
-          # Convert comma-separated secret to single-line Terraform list
-          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | tr ',' '\n' | awk '{printf "\"%s\",",$0}' | tr -d '\n' | sed 's/,$//')
-          echo "FUNCTIONS_LIST=[${FUNCTIONS_LIST}]" >> $GITHUB_ENV
-          echo "Prepared FUNCTIONS_LIST: [${FUNCTIONS_LIST}]"
+          # Convert comma-separated to Terraform list syntax
+          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | tr ',' '\n' | awk '{printf "\"%s\",",$0}' | sed 's/,$//')
+          echo "FUNCTIONS_LIST=[$FUNCTIONS_LIST]" >> $GITHUB_ENV
 
       # 5️⃣ Terraform Init
       - name: Terraform Init
-        run: terraform init
+        run: terraform -chdir=terraform init
 
       # 6️⃣ Terraform Plan
       - name: Terraform Plan
-        run: |
-          terraform plan \
-            -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
-            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
-            -var="functions=${FUNCTIONS_LIST}"
+        run: terraform -chdir=terraform plan \
+              -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+              -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+              -var="functions=${FUNCTIONS_LIST}"
 
       # 7️⃣ Terraform Apply
       - name: Terraform Apply
-        run: |
-          terraform apply -auto-approve \
-            -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
-            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
-            -var="functions=${FUNCTIONS_LIST}"
+        run: terraform -chdir=terraform apply -auto-approve \
+              -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+              -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+              -var="functions=${FUNCTIONS_LIST}"
