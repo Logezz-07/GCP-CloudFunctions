@@ -1,9 +1,6 @@
 name: Deploy Cloud Functions with Terraform
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -11,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout
+      # 1️⃣ Checkout repo
       - name: Checkout repo
         uses: actions/checkout@v4
 
@@ -25,29 +22,33 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # 4️⃣ Convert FUNCTIONS_LIST secret to Terraform list
-      - name: Prepare Terraform variables
-        run: |
-          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | tr ',' '\n' | awk '{printf "\"%s\",",$0}' | sed 's/,$//')
-          echo "FUNCTIONS_LIST=[$FUNCTIONS_LIST]" >> $GITHUB_ENV
-
-      # 5️⃣ Terraform Init
+      # 4️⃣ Terraform Init
       - name: Terraform Init
         working-directory: terraform
         run: terraform init
 
-      # 6️⃣ Terraform Plan
+      # 5️⃣ Terraform Plan
       - name: Terraform Plan
         working-directory: terraform
-        run: terraform plan \
-              -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
-              -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
-              -var="functions=${FUNCTIONS_LIST}"
+        run: |
+          # Convert comma-separated FUNCTIONS_LIST secret to Terraform list syntax
+          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | sed 's/\([^,]*\)/"&"/g')
+          echo "Functions to deploy: [$FUNCTIONS_LIST]"
+          
+          terraform plan \
+            -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+            -var="functions=[$FUNCTIONS_LIST]"
 
-      # 7️⃣ Terraform Apply
+      # 6️⃣ Terraform Apply
       - name: Terraform Apply
         working-directory: terraform
-        run: terraform apply -auto-approve \
-              -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
-              -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
-              -var="functions=${FUNCTIONS_LIST}"
+        run: |
+          # Convert comma-separated FUNCTIONS_LIST secret to Terraform list syntax
+          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | sed 's/\([^,]*\)/"&"/g')
+          echo "Applying deployment for functions: [$FUNCTIONS_LIST]"
+
+          terraform apply -auto-approve \
+            -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+            -var="functions=[$FUNCTIONS_LIST]"
