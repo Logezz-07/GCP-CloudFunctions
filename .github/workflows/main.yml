@@ -1,63 +1,39 @@
-name: Deploy Google Cloud Functions
+name: Deploy Cloud Functions with Terraform
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
 
     steps:
-      # 1️⃣ Checkout repo
-      - name: Checkout
+      # Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2️⃣ Authenticate to Google Cloud
+      # Auth to GCP
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # 3️⃣ Setup gcloud CLI
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
+      # Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-      # 4️⃣ Deploy all functions from FUNCTIONS secret
-      - name: Deploy Functions from List
-        env:
-          REGION: ${{ secrets.GOOGLE_FUNCTIONS_REGION }}
-          PROJECT: ${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}
-          FUNCTIONS: ${{ secrets.FUNCTIONS_LIST }}  # comma-separated list of functions
-        run: |
-          if [ -z "$FUNCTIONS" ]; then
-            echo "No functions specified in FUNCTIONS variable"
-            exit 0
-          fi
+      # Init Terraform
+      - name: Terraform Init
+        run: terraform init
 
-          IFS=',' read -ra FUNC_ARRAY <<< "$FUNCTIONS"
-          COUNT=0
+      # Plan
+      - name: Terraform Plan
+        run: terraform plan -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+                            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+                            -var='functions=${{ secrets.FUNCTIONS_LIST }}'
 
-          for func in "${FUNC_ARRAY[@]}"; do
-            COUNT=$((COUNT+1))
-            echo "Deploying function $func from ./$func"
-
-            gcloud functions deploy "$func" \
-              --gen2 \
-              --runtime nodejs20 \
-              --region "$REGION" \
-              --project "$PROJECT" \
-              --trigger-http \
-              --allow-unauthenticated \
-              --entry-point helloHttp \
-              --source "./$func"
-          done
-
-          echo "Total functions deployed: $COUNT"
+      # Apply
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+                             -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+                             -var='functions=${{ secrets.FUNCTIONS_LIST }}'
