@@ -5,7 +5,8 @@ terraform {
       version = ">= 4.34.0"
     }
   }
-  backend "gcs" {} # optional, if you want remote state
+  # Using local state to avoid interactive backend prompt in GitHub Actions
+  # backend "gcs" { ... }  # configure this only if you want remote state
 }
 
 variable "project_id" {}
@@ -19,18 +20,34 @@ provider "google" {
   region  = var.region
 }
 
-# Storage bucket for source code (shared for all functions)
+resource "random_id" "bucket" {
+  byte_length = 4
+}
+
+# Storage bucket for all function sources
 resource "google_storage_bucket" "function_bucket" {
   name                        = "${var.project_id}-gcf-source-${random_id.bucket.hex}"
   location                    = var.region
   uniform_bucket_level_access = true
 }
 
-resource "random_id" "bucket" {
-  byte_length = 4
+# Archive function source code
+data "archive_file" "functions" {
+  for_each    = toset(var.functions)
+  type        = "zip"
+  output_path = "/tmp/${each.key}.zip"
+  source_dir  = "../${each.key}"  # relative path from terraform folder
 }
 
-# Loop for each function
+# Upload each zip to bucket
+resource "google_storage_bucket_object" "function_objects" {
+  for_each = toset(var.functions)
+  name     = "${each.key}.zip"
+  bucket   = google_storage_bucket.function_bucket.name
+  source   = data.archive_file.functions[each.key].output_path
+}
+
+# Create Cloud Functions
 resource "google_cloudfunctions2_function" "functions" {
   for_each    = toset(var.functions)
   name        = each.key
@@ -44,7 +61,7 @@ resource "google_cloudfunctions2_function" "functions" {
     source {
       storage_source {
         bucket = google_storage_bucket.function_bucket.name
-        object = "${each.key}.zip"
+        object = google_storage_bucket_object.function_objects[each.key].name
       }
     }
   }
@@ -56,21 +73,6 @@ resource "google_cloudfunctions2_function" "functions" {
   }
 }
 
-# Upload zipped source for each function
-data "archive_file" "functions" {
-  for_each    = toset(var.functions)
-  type        = "zip"
-  output_path = "/tmp/${each.key}.zip"
-  source_dir  = "./${each.key}"
-}
-
-resource "google_storage_bucket_object" "function_objects" {
-  for_each = toset(var.functions)
-  name     = "${each.key}.zip"
-  bucket   = google_storage_bucket.function_bucket.name
-  source   = data.archive_file.functions[each.key].output_path
-}
-
 # Allow public HTTP invoke
 resource "google_cloud_run_service_iam_member" "invoker" {
   for_each = google_cloudfunctions2_function.functions
@@ -80,6 +82,7 @@ resource "google_cloud_run_service_iam_member" "invoker" {
   member   = "allUsers"
 }
 
+# Output function URLs
 output "function_uris" {
   value = {
     for k, f in google_cloudfunctions2_function.functions :
