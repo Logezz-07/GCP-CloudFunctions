@@ -1,6 +1,9 @@
 name: Deploy Cloud Functions with Terraform
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -8,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repo
+      # 1️⃣ Checkout
       - name: Checkout repo
         uses: actions/checkout@v4
 
@@ -22,31 +25,29 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # 4️⃣ Prepare FUNCTIONS_LIST for Terraform
-      - name: Prepare Functions List
+      # 4️⃣ Convert FUNCTIONS_LIST secret to Terraform list
+      - name: Prepare Terraform variables
         run: |
-          if [ -z "${{ secrets.FUNCTIONS_LIST }}" ]; then
-            echo "No functions specified!"
-            exit 1
-          fi
-          # Convert comma-separated to Terraform list syntax
           FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | tr ',' '\n' | awk '{printf "\"%s\",",$0}' | sed 's/,$//')
           echo "FUNCTIONS_LIST=[$FUNCTIONS_LIST]" >> $GITHUB_ENV
 
       # 5️⃣ Terraform Init
       - name: Terraform Init
-        run: terraform -chdir=terraform init
+        working-directory: terraform
+        run: terraform init
 
       # 6️⃣ Terraform Plan
       - name: Terraform Plan
-        run: terraform -chdir=terraform plan \
+        working-directory: terraform
+        run: terraform plan \
               -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
               -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
               -var="functions=${FUNCTIONS_LIST}"
 
       # 7️⃣ Terraform Apply
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve \
+        working-directory: terraform
+        run: terraform apply -auto-approve \
               -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
               -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
               -var="functions=${FUNCTIONS_LIST}"
