@@ -8,32 +8,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout
+      # 1️⃣ Checkout repo
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Auth to GCP
+      # 2️⃣ Authenticate to GCP
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # Setup Terraform
+      # 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # Init Terraform
+      # 4️⃣ Terraform Init
       - name: Terraform Init
         run: terraform init
 
-      # Plan
+      # 5️⃣ Terraform Plan
       - name: Terraform Plan
-        run: terraform plan -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
-                            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
-                            -var='functions=${{ secrets.FUNCTIONS_LIST }}'
+        run: |
+          # Convert comma-separated FUNCTIONS_LIST secret to Terraform list syntax
+          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | tr ',' '\n' | awk '{printf "\"%s\",",$0}' | sed 's/,$//')
+          terraform plan \
+            -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+            -var="functions=[${FUNCTIONS_LIST}]"
 
-      # Apply
+      # 6️⃣ Terraform Apply
       - name: Terraform Apply
-        run: terraform apply -auto-approve -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
-                             -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
-                             -var='functions=${{ secrets.FUNCTIONS_LIST }}'
+        run: |
+          # Convert comma-separated FUNCTIONS_LIST secret to Terraform list syntax
+          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | tr ',' '\n' | awk '{printf "\"%s\",",$0}' | sed 's/,$//')
+          terraform apply -auto-approve \
+            -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+            -var="functions=[${FUNCTIONS_LIST}]"
