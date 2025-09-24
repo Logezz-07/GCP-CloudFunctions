@@ -8,38 +8,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # 2️⃣ Authenticate to GCP
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      # 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Set FUNCTIONS_LIST
-        id: funcs
+      # 4️⃣ Prepare Terraform variables
+      - name: Prepare FUNCTIONS_LIST
         run: |
           if [ -z "${{ secrets.FUNCTIONS_LIST }}" ]; then
             echo "No functions specified!"
             exit 1
           fi
-          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | tr ',' '\n' | awk '{printf "\"%s\",",$0}' | sed 's/,$//')
+          # Convert comma-separated secret to single-line Terraform list
+          FUNCTIONS_LIST=$(echo "${{ secrets.FUNCTIONS_LIST }}" | tr ',' '\n' | awk '{printf "\"%s\",",$0}' | tr -d '\n' | sed 's/,$//')
           echo "FUNCTIONS_LIST=[${FUNCTIONS_LIST}]" >> $GITHUB_ENV
+          echo "Prepared FUNCTIONS_LIST: [${FUNCTIONS_LIST}]"
 
+      # 5️⃣ Terraform Init
+      - name: Terraform Init
+        run: terraform init
+
+      # 6️⃣ Terraform Plan
       - name: Terraform Plan
-        run: terraform plan \
-              -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
-              -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
-              -var="functions=${FUNCTIONS_LIST}"
+        run: |
+          terraform plan \
+            -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+            -var="functions=${FUNCTIONS_LIST}"
 
+      # 7️⃣ Terraform Apply
       - name: Terraform Apply
-        run: terraform apply -auto-approve \
-              -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
-              -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
-              -var="functions=${FUNCTIONS_LIST}"
+        run: |
+          terraform apply -auto-approve \
+            -var="project_id=${{ secrets.GOOGLE_FUNCTIONS_PROJECT_ID }}" \
+            -var="region=${{ secrets.GOOGLE_FUNCTIONS_REGION }}" \
+            -var="functions=${FUNCTIONS_LIST}"
