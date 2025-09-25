@@ -1,5 +1,8 @@
 terraform {
-  
+  backend "gcs" {
+    bucket = "roger-470808-terraform-state"
+    prefix = "cloud-functions"
+  }
 
   required_providers {
     google = {
@@ -14,8 +17,8 @@ terraform {
 }
 
 provider "google" {
-  project = "roger-470808"
-  region  = "us-central1"
+  project = var.project_id
+  region  = var.region
 }
 
 variable "project_id" {
@@ -38,26 +41,29 @@ data "google_storage_bucket" "bucket" {
   name = "roger-470808-gcf-source"
 }
 
-# Archive Function-1 folder into zip
-data "archive_file" "function1" {
+# Archive each function folder into zip
+data "archive_file" "functions" {
+  for_each    = toset(var.functions)
   type        = "zip"
-  source_dir  = "../Function-1"        # Relative path from terraform folder
-  output_path = "/tmp/function-1.zip"
+  source_dir  = "../${each.key}"
+  output_path = "/tmp/${each.key}.zip"
   excludes    = ["node_modules","README.md"]
 }
 
-# Upload zip to GCS bucket
-resource "google_storage_bucket_object" "function1" {
-  name   = "function-1-${data.archive_file.function1.output_sha}.zip"  # unique for every code change
-  bucket = data.google_storage_bucket.bucket.name
-  source = data.archive_file.function1.output_path
+# Upload each zip to bucket
+resource "google_storage_bucket_object" "function_objects" {
+  for_each = toset(var.functions)
+  name     = "${each.key}-${data.archive_file.functions[each.key].output_sha}.zip"
+  bucket   = data.google_storage_bucket.bucket.name
+  source   = data.archive_file.functions[each.key].output_path
 }
 
-# Deploy or update Cloud Function
-resource "google_cloudfunctions2_function" "function1" {
-  name        = "function-1"
-  location    = "us-central1"
-  description = "Terraform-managed Function-1"
+# Deploy or update Cloud Functions
+resource "google_cloudfunctions2_function" "functions" {
+  for_each    = toset(var.functions)
+  name        = each.key
+  location    = var.region
+  description = "Terraform-managed Cloud Function: ${each.key}"
 
   build_config {
     runtime     = "nodejs20"
@@ -66,7 +72,7 @@ resource "google_cloudfunctions2_function" "function1" {
     source {
       storage_source {
         bucket = data.google_storage_bucket.bucket.name
-        object = google_storage_bucket_object.function1.name
+        object = google_storage_bucket_object.function_objects[each.key].name
       }
     }
   }
@@ -80,7 +86,22 @@ resource "google_cloudfunctions2_function" "function1" {
   }
 }
 
-# Output Function URL
-output "function1_url" {
-  value = google_cloudfunctions2_function.function1.service_config[0].uri
+# Allow public HTTP invoke for each function
+resource "google_cloud_run_service_iam_member" "public_invoker" {
+  for_each = google_cloudfunctions2_function.functions
+
+  location = each.value.location
+  service  = each.value.service_config[0].service
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+
+  depends_on = [google_cloudfunctions2_function.functions]
+}
+
+# Output all function URLs
+output "function_urls" {
+  value = {
+    for k, f in google_cloudfunctions2_function.functions :
+    k => f.service_config[0].uri
+  }
 }
