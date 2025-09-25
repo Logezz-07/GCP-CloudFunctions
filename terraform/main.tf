@@ -1,4 +1,9 @@
 terraform {
+  backend "gcs" {
+    bucket = "roger-470808-terraform-state" # Remote state bucket
+    prefix = "cloud-functions"               # Path inside the bucket
+  }
+
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -31,22 +36,21 @@ variable "functions" {
   type        = list(string)
 }
 
-# Use existing bucket
+# Use existing bucket for function source
 data "google_storage_bucket" "bucket" {
   name = "roger-470808-gcf-source"
 }
 
-# Archive Function-1 folder into zip (exclude node_modules)
+# Archive Function-1 folder into zip
 data "archive_file" "function1" {
   type        = "zip"
-  source_dir  = "../Function-1"      # relative to terraform folder
+  source_dir  = "../Function-1"        # Relative path from terraform folder
   output_path = "/tmp/function-1.zip"
-  excludes    = ["node_modules","README.md"]
 }
 
-# Upload zip to GCS bucket with fixed name
+# Upload zip to GCS bucket
 resource "google_storage_bucket_object" "function1" {
-  name   = "function-1.zip"
+  name   = "function-1-${data.archive_file.function1.output_sha}.zip"  # unique for every code change
   bucket = data.google_storage_bucket.bucket.name
   source = data.archive_file.function1.output_path
 }
