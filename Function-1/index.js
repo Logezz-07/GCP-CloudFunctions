@@ -7,7 +7,6 @@ functions.http('helloHttp', async (req, res) => {
     try {
         console.log("Webhook invoked");
         const body = req.body;
-        console.log("Webhook status");
         const fulfillmentInfo = body.fulfillmentInfo || {};
         const tag = fulfillmentInfo.tag || null;
         let apiMessage = "Webhook called with unknown or no tag.";
@@ -44,7 +43,7 @@ functions.http('helloHttp', async (req, res) => {
                 returnCode: returnCode
             };
         } else if (tag === "AniIdentification") {
-            console.log("Webhook from Ani");
+           
             const apiUrl = "https://dev1-cct.rogers.com/dev01-identification/ivr-identification-ms/idc/data";
             const headers = {
                 cdr: "112432245667775757",
