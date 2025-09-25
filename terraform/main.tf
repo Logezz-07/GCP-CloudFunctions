@@ -15,42 +15,28 @@ provider "google" {
   project = "roger-470808"
   region  = "us-central1"
 }
-variable "project_id" {
-  description = "GCP Project ID"
-  type        = string
-}
 
-variable "region" {
-  description = "GCP Region"
-  type        = string
-}
-
-variable "functions" {
-  description = "List of function folders to deploy"
-  type        = list(string)
-}
-
-
-# Use existing bucket instead of creating a new one
+# Use existing bucket
 data "google_storage_bucket" "bucket" {
   name = "roger-470808-gcf-source"
 }
 
-# Archive Function-1 folder into zip
+# Archive Function-1 folder into zip (exclude node_modules)
 data "archive_file" "function1" {
   type        = "zip"
-  source_dir  = "../Function-1"        # Relative path from terraform folder
+  source_dir  = "../Function-1"      # relative to terraform folder
   output_path = "/tmp/function-1.zip"
+  excludes    = ["node_modules/*", "README.md"]
 }
 
-# Upload zip to GCS bucket
+# Upload zip to GCS bucket with fixed name
 resource "google_storage_bucket_object" "function1" {
-  name   = "function-1-${data.archive_file.function1.output_sha}.zip"
+  name   = "function-1.zip"
   bucket = data.google_storage_bucket.bucket.name
   source = data.archive_file.function1.output_path
 }
 
-# Deploy Cloud Function
+# Deploy or update Cloud Function
 resource "google_cloudfunctions2_function" "function1" {
   name        = "function-1"
   location    = "us-central1"
