@@ -76,10 +76,13 @@ resource "google_cloudfunctions2_function" "functions" {
 # Allow public HTTP invoke
 resource "google_cloud_run_service_iam_member" "invoker" {
   for_each = google_cloudfunctions2_function.functions
+
   location = each.value.location
-  service  = each.value.name
+  service  = each.value.service_config[0].service
   role     = "roles/run.invoker"
   member   = "allUsers"
+
+  depends_on = [google_cloudfunctions2_function.functions]
 }
 
 # Output function URLs
