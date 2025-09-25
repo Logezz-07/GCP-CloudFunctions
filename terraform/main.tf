@@ -75,7 +75,7 @@ resource "google_cloudfunctions2_function" "functions" {
 }
 
 # Allow public HTTP invoke
-resource "google_cloud_run_service_iam_member" "invoker" {
+resource "google_cloud_run_service_iam_member" "member" {
   for_each = google_cloudfunctions2_function.functions
 
   location = each.value.location
