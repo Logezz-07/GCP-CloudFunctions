@@ -16,6 +16,21 @@ provider "google" {
   region  = "us-central1"
 }
 
+variable "project_id" {
+  description = "GCP Project ID"
+  type        = string
+}
+
+variable "region" {
+  description = "GCP Region"
+  type        = string
+}
+
+variable "functions" {
+  description = "List of function folders to deploy"
+  type        = list(string)
+}
+
 # Use existing bucket
 data "google_storage_bucket" "bucket" {
   name = "roger-470808-gcf-source"
