@@ -73,7 +73,7 @@ resource "google_cloudfunctions2_function" "functions" {
   timeout_seconds    = 60
   ingress_settings   = "INGRESS_INTERNAL_ONLY"
 }
-
+}
 # Allow public HTTP invoke
 resource "google_cloud_run_service_iam_member" "invoker" {
   for_each = google_cloudfunctions2_function.functions
