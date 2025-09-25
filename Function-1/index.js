@@ -7,10 +7,8 @@ functions.http('helloHttp', async (req, res) => {
     try {
         console.log("Webhook invoked");
         const body = req.body;
-        console.log("Request body:", body);
         const fulfillmentInfo = body.fulfillmentInfo || {};
         const tag = fulfillmentInfo.tag || null;
-        console.log("Tag:", tag);
         let apiMessage = "Webhook called with unknown or no tag.";
         let sessionParams = {};
 
