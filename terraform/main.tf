@@ -1,8 +1,5 @@
 terraform {
-  backend "gcs" {
-    bucket = "roger-470808-terraform-state" # Remote state bucket
-    prefix = "cloud-functions"               # Path inside the bucket
-  }
+  
 
   required_providers {
     google = {
