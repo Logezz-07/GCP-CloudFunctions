@@ -67,10 +67,10 @@ resource "google_cloudfunctions2_function" "functions" {
   }
 
   service_config {
-    max_instance_count = 1
-    available_memory   = "256M"
-    timeout_seconds    = 60
-  }
+  max_instance_count = 1
+  available_memory   = "256M"
+  timeout_seconds    = 60
+  ingress_settings   = "INGRESS_INTERNAL_ONLY"
 }
 
 # Allow public HTTP invoke
