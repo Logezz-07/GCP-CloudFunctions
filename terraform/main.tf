@@ -7,15 +7,10 @@ terraform {
   }
 }
 
-variable "project_id" {
-  type = string
-}
-variable "region" {
-  type = string
-}
+variable "project_id" {}
+variable "region" {}
 variable "functions" {
   type = list(string)
-  description = "List of function folder names under ../"
 }
 
 provider "google" {
@@ -23,34 +18,31 @@ provider "google" {
   region  = var.region
 }
 
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
-
+# Fixed bucket (doesn't get recreated every apply)
 resource "google_storage_bucket" "function_bucket" {
-  name                        = "${var.project_id}-gcf-source-${random_id.bucket_suffix.hex}"
+  name                        = "${var.project_id}-gcf-source"
   location                    = var.region
   uniform_bucket_level_access = true
-
-  versioning {
-    enabled = true
-  }
 }
 
+# Archive each function source
 data "archive_file" "functions" {
   for_each    = toset(var.functions)
   type        = "zip"
   output_path = "/tmp/${each.key}.zip"
-  source_dir  = "../${each.key}"
+  source_dir  = "../${each.key}"  # relative path from terraform folder
 }
 
+# Upload each zip to bucket, trigger updates when code changes
 resource "google_storage_bucket_object" "function_objects" {
-  for_each = toset(var.functions)
-  name     = "${each.key}-${data.archive_file.functions[each.key].output_sha}.zip"
-  bucket   = google_storage_bucket.function_bucket.name
-  source   = data.archive_file.functions[each.key].output_path
+  for_each    = toset(var.functions)
+  name        = "${each.key}.zip"
+  bucket      = google_storage_bucket.function_bucket.name
+  source      = data.archive_file.functions[each.key].output_path
+  content_md5 = filemd5(data.archive_file.functions[each.key].output_path)
 }
 
+# Deploy Cloud Functions
 resource "google_cloudfunctions2_function" "functions" {
   for_each    = toset(var.functions)
   name        = each.key
@@ -63,23 +55,22 @@ resource "google_cloudfunctions2_function" "functions" {
 
     source {
       storage_source {
-        bucket     = google_storage_bucket.function_bucket.name
-        object     = google_storage_bucket_object.function_objects[each.key].name
-        generation = google_storage_bucket_object.function_objects[each.key].generation
+        bucket = google_storage_bucket.function_bucket.name
+        object = google_storage_bucket_object.function_objects[each.key].name
       }
     }
   }
 
   service_config {
-    min_instance_count             = 1
-    max_instance_count             = 1
-    available_memory               = "256M"
-    timeout_seconds                = 60
-    ingress_settings              = "ALLOW_INTERNAL_ONLY"
-    all_traffic_on_latest_revision = true
+    min_instance_count = 1
+    max_instance_count = 1
+    available_memory   = "256M"
+    timeout_seconds    = 60
+    ingress_settings   = "ALLOW_ALL" # allow external access
   }
 }
 
+# Allow public HTTP invoke
 resource "google_cloud_run_service_iam_member" "invoker" {
   for_each = google_cloudfunctions2_function.functions
 
@@ -87,10 +78,9 @@ resource "google_cloud_run_service_iam_member" "invoker" {
   service  = each.value.service_config[0].service
   role     = "roles/run.invoker"
   member   = "allUsers"
-
-  depends_on = [google_cloudfunctions2_function.functions]
 }
 
+# Output function URLs
 output "function_uris" {
   value = {
     for k, f in google_cloudfunctions2_function.functions :
