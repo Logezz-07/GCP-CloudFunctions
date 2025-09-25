@@ -16,39 +16,22 @@ provider "google" {
   region  = "us-central1"
 }
 
-variable "project_id" {
-  description = "GCP Project ID"
-  type        = string
-}
-
-variable "region" {
-  description = "GCP Region"
-  type        = string
-}
-
-variable "functions" {
-  description = "List of function folders to deploy"
-  type        = list(string)
-}
-
-# Storage bucket for function source
-resource "google_storage_bucket" "bucket" {
-  name                        = "roger-470808-gcf-source"  # Globally unique
-  location                    = "us-central1"                       # Can stay US; bucket is multi-region
-  uniform_bucket_level_access = true
+# Use existing bucket instead of creating a new one
+data "google_storage_bucket" "bucket" {
+  name = "roger-470808-gcf-source"
 }
 
 # Archive Function-1 folder into zip
 data "archive_file" "function1" {
   type        = "zip"
-  source_dir  = "../Function-1"      # Relative path from terraform folder
+  source_dir  = "../Function-1"        # Relative path from terraform folder
   output_path = "/tmp/function-1.zip"
 }
 
 # Upload zip to GCS bucket
 resource "google_storage_bucket_object" "function1" {
-  name   = "function-1.zip"
-  bucket = google_storage_bucket.bucket.name
+  name   = "function-1-${data.archive_file.function1.output_sha}.zip"
+  bucket = data.google_storage_bucket.bucket.name
   source = data.archive_file.function1.output_path
 }
 
@@ -60,11 +43,11 @@ resource "google_cloudfunctions2_function" "function1" {
 
   build_config {
     runtime     = "nodejs20"
-    entry_point = "helloHttp"  # Change if your function exports a different function
+    entry_point = "helloHttp"
 
     source {
       storage_source {
-        bucket = google_storage_bucket.bucket.name
+        bucket = data.google_storage_bucket.bucket.name
         object = google_storage_bucket_object.function1.name
       }
     }
@@ -77,4 +60,9 @@ resource "google_cloudfunctions2_function" "function1" {
     timeout_seconds    = 60
     ingress_settings   = "ALLOW_ALL"
   }
+}
+
+# Output Function URL
+output "function1_url" {
+  value = google_cloudfunctions2_function.function1.service_config[0].uri
 }
