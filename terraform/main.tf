@@ -18,13 +18,15 @@ provider "google" {
   region  = var.region
 }
 
-# Fixed bucket (doesn't get recreated every apply)
-resource "google_storage_bucket" "function_bucket" {
-  name                        = "${var.project_id}-gcf-source"
-  location                    = var.region
-  uniform_bucket_level_access = true
-}
+resource "google_storage_bucket_object" "function_objects" {
+  for_each    = toset(var.functions)
+  name        = "${each.key}.zip"
+  bucket      = google_storage_bucket.function_bucket.name
+  source      = data.archive_file.functions[each.key].output_path
 
+  # 👇 This makes Terraform detect code changes and re-upload
+  source_hash = filemd5(data.archive_file.functions[each.key].output_path)
+}
 # Archive each function source
 data "archive_file" "functions" {
   for_each    = toset(var.functions)
