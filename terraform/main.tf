@@ -18,9 +18,14 @@ provider "google" {
   region  = var.region
 }
 
-# Use the existing bucket
+# Random suffix for new bucket
+resource "random_id" "bucket" {
+  byte_length = 4
+}
+
+# Storage bucket for function sources
 resource "google_storage_bucket" "function_bucket" {
-  name                        = "r4b-dev-cloudfunction-codes"  # existing bucket
+  name                        = "${var.project_id}-gcf-source-${random_id.bucket.hex}"
   location                    = var.region
   uniform_bucket_level_access = true
 }
@@ -33,7 +38,7 @@ data "archive_file" "functions" {
   source_dir  = "../${each.key}"  # relative path from terraform folder
 }
 
-# Upload each zip to existing bucket
+# Upload each zip to bucket
 resource "google_storage_bucket_object" "function_objects" {
   for_each = toset(var.functions)
   name     = "${each.key}.zip"
