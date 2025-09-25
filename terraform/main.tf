@@ -19,7 +19,7 @@ provider "google" {
 # Storage bucket for function source
 resource "google_storage_bucket" "bucket" {
   name                        = "roger-470808-gcf-source"  # Globally unique
-  location                    = "US"                       # Can stay US; bucket is multi-region
+  location                    = "us-central1"                       # Can stay US; bucket is multi-region
   uniform_bucket_level_access = true
 }
 
