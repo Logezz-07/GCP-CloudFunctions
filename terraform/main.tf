@@ -46,7 +46,7 @@ data "archive_file" "function1" {
   type        = "zip"
   source_dir  = "../Function-1"        # Relative path from terraform folder
   output_path = "/tmp/function-1.zip"
-  excludes    = ["node_modules",README.md"]
+  excludes    = ["node_modules","README.md"]
 }
 
 # Upload zip to GCS bucket
