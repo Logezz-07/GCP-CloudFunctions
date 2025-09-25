@@ -7,7 +7,6 @@ functions.http('helloHttp', async (req, res) => {
     try {
         console.log("Webhook invoked");
         const body = req.body;
-        console.log("Request body:", body);
         // Get the tag
         const fulfillmentInfo = body.fulfillmentInfo || {};
         const tag = fulfillmentInfo.tag || null;
