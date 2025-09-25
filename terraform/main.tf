@@ -18,35 +18,35 @@ provider "google" {
   region  = var.region
 }
 
-# Random suffix for new bucket
-resource "random_id" "bucket" {
-  byte_length = 4
-}
-
-# Storage bucket for function sources
+# Static bucket for CI/CD (do not recreate)
 resource "google_storage_bucket" "function_bucket" {
-  name                        = "${var.project_id}-gcf-source-${random_id.bucket.hex}"
+  name                        = "${var.project_id}-gcf-source"
   location                    = var.region
   uniform_bucket_level_access = true
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Archive function source code
 data "archive_file" "functions" {
   for_each    = toset(var.functions)
   type        = "zip"
-  output_path = "/tmp/${each.key}.zip"
-  source_dir  = "../${each.key}"  # relative path from terraform folder
+  output_path = "../terraform/${each.key}.zip"
+  source_dir  = "../${each.key}"
 }
 
-# Upload each zip to bucket
+# Upload each zip to bucket with hash to detect changes
 resource "google_storage_bucket_object" "function_objects" {
   for_each = toset(var.functions)
   name     = "${each.key}.zip"
   bucket   = google_storage_bucket.function_bucket.name
   source   = data.archive_file.functions[each.key].output_path
+  source_hash = filemd5(data.archive_file.functions[each.key].output_path)
 }
 
-# Create Cloud Functions
+# Cloud Functions 2nd Gen
 resource "google_cloudfunctions2_function" "functions" {
   for_each    = toset(var.functions)
   name        = each.key
@@ -70,26 +70,25 @@ resource "google_cloudfunctions2_function" "functions" {
     max_instance_count = 1
     available_memory   = "256M"
     timeout_seconds    = 60
-    ingress_settings   = "ALLOW_INTERNAL_ONLY"
+    ingress_settings   = "ALLOW_ALL" # public HTTP access
   }
 }
 
-# Allow public HTTP invoke
-resource "google_cloud_run_service_iam_member" "member" {
+# IAM for public invoke
+resource "google_cloudfunctions2_function_iam_member" "invoker" {
   for_each = google_cloudfunctions2_function.functions
 
-  location = each.value.location
-  service  = each.value.service_config[0].service
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-
-  depends_on = [google_cloudfunctions2_function.functions]
+  project        = var.project_id
+  region         = var.region
+  cloud_function = each.value.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "allUsers"
 }
 
-# Output function URLs
-output "function_uris" {
+# Output URLs
+output "function_urls" {
   value = {
     for k, f in google_cloudfunctions2_function.functions :
-    k => f.service_config[0].uri
+    k => f.status[0].url
   }
 }
