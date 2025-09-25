@@ -5,8 +5,6 @@ terraform {
       version = ">= 4.34.0"
     }
   }
-  # Using local state to avoid interactive backend prompt in GitHub Actions
-  # backend "gcs" { ... }  # configure this only if you want remote state
 }
 
 variable "project_id" {}
@@ -20,13 +18,9 @@ provider "google" {
   region  = var.region
 }
 
-resource "random_id" "bucket" {
-  byte_length = 4
-}
-
-# Storage bucket for all function sources
+# Use the existing bucket
 resource "google_storage_bucket" "function_bucket" {
-  name                        = "${var.project_id}-gcf-source-${random_id.bucket.hex}"
+  name                        = "r4b-dev-cloudfunction-codes"  # existing bucket
   location                    = var.region
   uniform_bucket_level_access = true
 }
@@ -39,7 +33,7 @@ data "archive_file" "functions" {
   source_dir  = "../${each.key}"  # relative path from terraform folder
 }
 
-# Upload each zip to bucket
+# Upload each zip to existing bucket
 resource "google_storage_bucket_object" "function_objects" {
   for_each = toset(var.functions)
   name     = "${each.key}.zip"
@@ -67,13 +61,14 @@ resource "google_cloudfunctions2_function" "functions" {
   }
 
   service_config {
-  min_instance_count = 1
-  max_instance_count = 1
-  available_memory   = "256M"
-  timeout_seconds    = 60
-  ingress_settings   = "ALLOW_INTERNAL_ONLY"
+    min_instance_count = 1
+    max_instance_count = 1
+    available_memory   = "256M"
+    timeout_seconds    = 60
+    ingress_settings   = "ALLOW_INTERNAL_ONLY"
+  }
 }
-}
+
 # Allow public HTTP invoke
 resource "google_cloud_run_service_iam_member" "invoker" {
   for_each = google_cloudfunctions2_function.functions
