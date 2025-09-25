@@ -11,7 +11,6 @@ functions.http('helloHttp', async (req, res) => {
         // Get the tag
         const fulfillmentInfo = body.fulfillmentInfo || {};
         const tag = fulfillmentInfo.tag || null;
-        console.log("Tag:", tag);
         let apiMessage = "Webhook called with unknown or no tag.";
         let sessionParams = {};
 
