@@ -26,7 +26,6 @@ functions.http('helloHttp', async (req, res) => {
             };
             const apiResponse = await axios.get(apiUrl, { headers });
             console.log("API Response:", apiResponse.data);
-            // Set session parameters from API response
             const dnisParams = apiResponse.data.dnisParams || {};
             const aniParams = apiResponse.data.aniParams || {};
             const returnCode = apiResponse.data.returnCode;
