@@ -54,6 +54,9 @@ resource "google_cloudfunctions2_function" "functions" {
   description = "Terraform managed Cloud Function: ${each.key}"
 
   build_config {
+    runtime     = "nodejs20"
+    entry_point = "helloHttp"
+
     source {
       storage_source {
         bucket = google_storage_bucket.function_bucket.name
