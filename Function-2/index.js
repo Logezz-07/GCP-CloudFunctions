@@ -14,7 +14,6 @@ functions.http('helloHttp', async (req, res) => {
         let sessionParams = {};
 
         if (tag === "callStartApi") {
-            console.log("Webhook status");
             const apiUrl = "https://dev1-cct.rogers.com/dev01-config/ivr-config-ms/ivr/8335293704/call-start/params";
             const headers = {
                 cdr: "112432245667775757",
