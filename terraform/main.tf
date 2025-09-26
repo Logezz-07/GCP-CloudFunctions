@@ -60,7 +60,7 @@ resource "google_cloudfunctions2_function" "functions" {
 
     source {
       storage_source {
-        bucket = google_storage_bucket.function_bucket.name
+        bucket = data.google_storage_bucket.bucket.name
         object = google_storage_bucket_object.function_objects[each.key].name
       }
     }
