@@ -2,6 +2,11 @@ name: Deploy Cloud Functions with Terraform
 
 on:
   workflow_dispatch:
+    inputs:
+      git_tag:
+        description: 'Git tag or commit to checkout'
+        required: true
+        default: 'main'
 
 jobs:
   deploy:
