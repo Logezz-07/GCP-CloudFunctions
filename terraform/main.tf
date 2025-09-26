@@ -42,7 +42,7 @@ data "archive_file" "functions" {
 # Upload each zip to bucket
 resource "google_storage_bucket_object" "function_objects" {
   for_each = toset(var.functions)
-  name     = "${each.key}-${data.archive_file.function1.output_sha}.zip"
+  name     = "${each.key}.zip"
   bucket   = google_storage_bucket.function_bucket.name
   source   = data.archive_file.functions[each.key].output_path
 }
